@@ -1,0 +1,1 @@
+target_sources(graphs PUBLIC ${PROJECT_SOURCE_DIR}/src/algorithm/SSSP.cpp)

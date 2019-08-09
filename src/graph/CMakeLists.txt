@@ -1,0 +1,1 @@
+target_sources(graphs PUBLIC ${PROJECT_SOURCE_DIR}/src/graph/CSR_Graph.cpp )
