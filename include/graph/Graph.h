@@ -20,6 +20,10 @@ public:
         return nv;
     }
 
+    unsigned long getNE() {
+        return ne;
+    }
+
     long getDegree(unsigned long idx) {
         return degrees.at(idx);
     }

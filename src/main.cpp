@@ -1,6 +1,6 @@
 #include <iostream>
 #include <queue>
-#include <algorithm/SSSP.h>
+#include "algorithm/SSSP.h"
 #include "graph/CSR_Graph.h"
 
 int main(int argc, char* argv[]) {

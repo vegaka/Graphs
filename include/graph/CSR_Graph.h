@@ -14,11 +14,11 @@ private:
     std::vector<long> rowPtr;
     std::vector<long> colIdx;
 
-    void edgeListToCSR(std::vector<Edge>);
+    void edgeListToCSR(const std::vector<Edge>&);
 
 public:
     // Path points to a matrix market file
-    explicit CSR_Graph(std::string path);
+    explicit CSR_Graph(const std::string& path);
 
     long getEdgeWeight(long src, long dst) override;
 

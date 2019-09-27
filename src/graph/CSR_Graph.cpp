@@ -2,7 +2,7 @@
 #include <iostream>
 #include "graph/CSR_Graph.h"
 
-CSR_Graph::CSR_Graph(std::string path) {
+CSR_Graph::CSR_Graph(const std::string& path) {
     std::ifstream ifs {path};
     std::string line;
     if (ifs) {
@@ -30,12 +30,12 @@ CSR_Graph::CSR_Graph(std::string path) {
             auto spacepos = line.find(' ');
             long dst = std::stol(line.substr(spacepos)) - 1;
             auto lspos = line.find_last_of(' ');
-            long w = std::stol(line.substr(lspos));
-            edges.emplace_back(src, dst, w);
+            long data = std::stol(line.substr(lspos));
+            edges.emplace_back(src, dst, data);
             degs[src]++;
 
             if (symmetric) {
-                edges.emplace_back(dst, src, w);
+                edges.emplace_back(dst, src, data);
                 degs[dst]++;
             }
         }
@@ -52,7 +52,7 @@ CSR_Graph::CSR_Graph(std::string path) {
     }
 }
 
-void CSR_Graph::edgeListToCSR(std::vector<Edge> edges) {
+void CSR_Graph::edgeListToCSR(const std::vector<Edge>& edges) {
     rowPtr.emplace_back(0);
 
     for (Edge e: edges) {
