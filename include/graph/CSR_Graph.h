@@ -24,6 +24,11 @@ public:
 
     std::vector<long> getNeighbours(long src) override;
 
+    std::pair<long, long> getSrcDstFromId(long id) override;
+
+    long getIdFromSrcDst(long src, long dst) override;
+
+    long getWeightFromId(long id) override;
 };
 
 

@@ -66,16 +66,9 @@ void CSR_Graph::edgeListToCSR(const std::vector<Edge>& edges) {
 }
 
 long CSR_Graph::getEdgeWeight(long src, long dst) {
-    // src = row, dst = col
-    //std::cout << "src: " << src << ", dst: " << dst << std::endl;
-    for (long i = rowPtr[src]; i < rowPtr[src + 1]; ++i) {
-        //std::cout << "Weight: " << w[i] << ", colIdx: " << colIdx[i] << std::endl;
-        if (colIdx[i] == dst) {
-            return w[i];
-        }
-    }
-
-    return std::numeric_limits<int>::max();
+    long id = getIdFromSrcDst(src, dst);
+    if (id != -1) return getWeightFromId(id);
+    else return std::numeric_limits<int>::max();
 }
 
 std::vector<long> CSR_Graph::getNeighbours(long src) {
@@ -85,5 +78,26 @@ std::vector<long> CSR_Graph::getNeighbours(long src) {
     }
 
     return neighbours;
+}
+
+std::pair<long, long> CSR_Graph::getSrcDstFromId(long id) {
+    long dst = colIdx[id];
+
+
+    return std::make_pair(0, dst);
+}
+
+long CSR_Graph::getIdFromSrcDst(long src, long dst) {
+    for (long i = rowPtr[src]; i < rowPtr[src + 1]; ++i) {
+        if (colIdx[i] == dst) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+long CSR_Graph::getWeightFromId(long id) {
+    return w.at(id);
 }
 

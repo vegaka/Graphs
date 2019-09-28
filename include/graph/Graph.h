@@ -2,6 +2,7 @@
 #define GRAPHS_GRAPH_H
 
 #include <vector>
+#include <algorithm>
 
 class Graph {
 protected:
@@ -31,6 +32,12 @@ public:
     virtual long getEdgeWeight(long src, long dst)= 0;
 
     virtual std::vector<long> getNeighbours(long src)= 0;
+
+    virtual std::pair<long, long> getSrcDstFromId(long id)= 0;
+
+    virtual long getIdFromSrcDst(long src, long dst)= 0;
+
+    virtual long getWeightFromId(long id)= 0;
 };
 
 
