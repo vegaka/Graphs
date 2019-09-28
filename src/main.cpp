@@ -1,11 +1,12 @@
 #include <iostream>
 #include <queue>
 #include <chrono>
+#include <algorithm/VertexCover.h>
+#include <sstream>
 #include "algorithm/SSSP.h"
 #include "graph/CSR_Graph.h"
 
-int main(int argc, char* argv[]) {
-
+static void testSSSP(int argc, char* argv[]) {
     if (argc == 2) {
         CSR_Graph g {argv[1]};
         long startNode = g.getMaxDegreeNode();
@@ -40,6 +41,33 @@ int main(int argc, char* argv[]) {
             std::cout << argv[i] << std::endl;
         }
     }
+}
+
+static void testVertexCover(int argc, char* argv[]) {
+    if (argc == 2) {
+        CSR_Graph g {argv[1]};
+
+        auto startTime = std::chrono::high_resolution_clock::now();
+        auto result = VertexCover(g);
+        auto endTime = std::chrono::high_resolution_clock::now();
+
+        std::cout << "Vertices in cover: ";
+        std::ostringstream s;
+        for (auto &n : result) {
+            s << n << ", ";
+        }
+        std::cout << s.str().substr(0, s.str().size() - 2) << std::endl;
+
+        std::cout << "Time spent (ms): "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count()
+                  << std::endl;
+    }
+}
+
+int main(int argc, char* argv[]) {
+
+    //testSSSP(argc, argv);
+    testVertexCover(argc, argv);
 
     return 0;
 }

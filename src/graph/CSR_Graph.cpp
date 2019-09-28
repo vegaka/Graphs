@@ -81,10 +81,19 @@ std::vector<long> CSR_Graph::getNeighbours(long src) {
 }
 
 std::pair<long, long> CSR_Graph::getSrcDstFromId(long id) {
+    // Find src from id
+    long src = 0;
+    for (auto i = rowPtr.size() - 1; i >= 0; --i) {
+        if (rowPtr[i] > id) {
+            continue;
+        } else {
+            src = i;
+            break;
+        }
+    }
+
     long dst = colIdx[id];
-
-
-    return std::make_pair(0, dst);
+    return std::make_pair(src, dst);
 }
 
 long CSR_Graph::getIdFromSrcDst(long src, long dst) {
@@ -100,4 +109,3 @@ long CSR_Graph::getIdFromSrcDst(long src, long dst) {
 long CSR_Graph::getWeightFromId(long id) {
     return w.at(id);
 }
-
