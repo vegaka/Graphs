@@ -3,6 +3,8 @@
 #include <chrono>
 #include <algorithm/VertexCover.h>
 #include <sstream>
+#include <algorithm/MaxFlow.h>
+#include <algorithm/BFS.h>
 #include "algorithm/SSSP.h"
 #include "graph/CSR_Graph.h"
 
@@ -64,10 +66,59 @@ static void testVertexCover(int argc, char* argv[]) {
     }
 }
 
+static void testMF(int argc, char* argv[]) {
+    if (argc == 2) {
+        CSR_Graph g {argv[1]};
+        long src = 0;
+        long sink = 5;
+
+        std::cout << "Test" << std::endl;
+
+        auto startTime = std::chrono::high_resolution_clock::now();
+        auto flows = MaxFlow(g, src, sink);
+        auto endTime = std::chrono::high_resolution_clock::now();
+
+        long maxFlow = 0;
+        auto neighbours = g.getNeighbours(src);
+        for (auto &n : neighbours) {
+            long id = g.getIdFromSrcDst(src, n);
+            maxFlow += flows[id];
+        }
+
+        std::cout << "The maximum flow is: " << maxFlow << "." << std::endl;
+
+        std::cout << "Time spent (ms): "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count()
+                  << std::endl;
+    }
+}
+
+static void testBFS(int argc, char* argv[]) {
+    if (argc == 2) {
+        CSR_Graph g {argv[1]};
+        long src = 0;
+
+        auto startTime = std::chrono::high_resolution_clock::now();
+        auto distances = BFS(g, src);
+        auto endTime = std::chrono::high_resolution_clock::now();
+
+        std::cout << "Distances:" << std::endl;
+        for (int i = 0; i < distances.size(); ++i) {
+            std::cout << i << " : " << distances[i] << std::endl;
+        }
+
+        std::cout << "Time spent (ms): "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count()
+                  << std::endl;
+    }
+}
+
 int main(int argc, char* argv[]) {
 
     //testSSSP(argc, argv);
-    testVertexCover(argc, argv);
+    //testVertexCover(argc, argv);
+    testMF(argc, argv);
+    //testBFS(argc, argv);
 
     return 0;
 }

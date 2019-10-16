@@ -3,6 +3,6 @@
 
 #include "graph/Graph.h"
 
-void MaxFlow(Graph &g, long s, long t);
+std::vector<long> MaxFlow(Graph &g, long s, long t);
 
 #endif //GRAPHS_MAXFLOW_H
