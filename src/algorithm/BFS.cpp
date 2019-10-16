@@ -3,9 +3,10 @@
 
 std::vector<long> BFS(Graph &g, const long src) {
     std::queue<long> q;
-    std::vector<long> distances(g.getNV(), 0);
+    std::vector<long> distances(g.getNV(), -1);
 
     q.push(src);
+    distances[src] = 0;
 
     while (!q.empty()) {
         long curNode = q.front();
@@ -13,7 +14,7 @@ std::vector<long> BFS(Graph &g, const long src) {
 
         auto neighbours = g.getNeighbours(curNode);
         for (auto &n : neighbours) {
-            if (distances[n] != 0) {
+            if (distances[n] == -1) {
                 distances[n] = distances[curNode] + 1;
                 q.push(n);
             }
