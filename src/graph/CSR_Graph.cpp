@@ -109,3 +109,25 @@ long CSR_Graph::getIdFromSrcDst(long src, long dst) {
 long CSR_Graph::getWeightFromId(long id) {
     return w.at(id);
 }
+
+std::ostream &operator<<(std::ostream &ostream, CSR_Graph g) {
+    ostream << "Weights: ";
+    for (int i = 0; i < g.w.size() - 1; ++i) {
+        ostream << g.w.at(i) << ", ";
+    }
+    ostream << g.w.at(g.w.size() - 1) << std::endl;
+
+    ostream << "Column indexes: ";
+    for (int i = 0; i < g.colIdx.size() - 1; ++i) {
+        ostream << g.colIdx.at(i) << ", ";
+    }
+    ostream << g.colIdx.at(g.colIdx.size() - 1) << std::endl;
+
+    ostream << "Row pointers: ";
+    for (int i = 0; i < g.rowPtr.size() - 1; ++i) {
+        ostream << g.rowPtr.at(i) << ", ";
+    }
+    ostream << g.rowPtr.at(g.rowPtr.size() - 1) << std::endl;
+
+    return ostream;
+}

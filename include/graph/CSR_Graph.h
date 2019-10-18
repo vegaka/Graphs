@@ -29,6 +29,8 @@ public:
     long getIdFromSrcDst(long src, long dst) override;
 
     long getWeightFromId(long id) override;
+
+    friend std::ostream& operator<<(std::ostream& os, CSR_Graph g);
 };
 
 
