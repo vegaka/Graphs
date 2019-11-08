@@ -2,6 +2,34 @@
 #include <iostream>
 #include "graph/CSR_Graph.h"
 
+CSR_Graph::CSR_Graph(const long nv, const long ne, const bool sym) {
+    this->ne = ne;
+    this->nv = nv;
+    symmetric = sym;
+}
+
+CSR_Graph::CSR_Graph(const std::unordered_map<std::pair<long, long>, long>& edges) {
+    std::vector<Edge> edgeList;
+    nv = 0;
+
+    for (auto const& e : edges) {
+        long src = e.first.first;
+        long dst = e.first.second;
+        long weight = e.second;
+
+        edgeList.emplace_back(src, dst, weight);
+
+        nv = nv > src ? nv : src;
+        nv = nv > dst ? nv : dst;
+    }
+
+    symmetric = true;
+    ne = edgeList.size();
+
+    std::sort(edgeList.begin(), edgeList.end());
+    edgeListToCSR(edgeList);
+}
+
 CSR_Graph::CSR_Graph(const std::string& path) {
     std::ifstream ifs {path};
     std::string line;
@@ -108,4 +136,8 @@ long CSR_Graph::getIdFromSrcDst(long src, long dst) {
 
 long CSR_Graph::getWeightFromId(long id) {
     return w.at(id);
+}
+
+std::vector<long> CSR_Graph::getWeights() {
+    return w;
 }

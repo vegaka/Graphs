@@ -106,3 +106,4 @@ fabric.properties
 build/
 *.mtx
 .idea/
+inputs/
