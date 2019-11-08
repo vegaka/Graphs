@@ -70,19 +70,18 @@ static void testMF(int argc, char* argv[]) {
     if (argc == 2) {
         CSR_Graph g {argv[1]};
         long src = 0;
-        long sink = 5;
+        long sink = 7;
 
         std::cout << "Test" << std::endl;
 
         auto startTime = std::chrono::high_resolution_clock::now();
-        auto flows = MaxFlow(g, src, sink);
+        auto flows = LFFlow(g, src, sink);
         auto endTime = std::chrono::high_resolution_clock::now();
 
         long maxFlow = 0;
         auto neighbours = g.getNeighbours(src);
         for (auto &n : neighbours) {
-            long id = g.getIdFromSrcDst(src, n);
-            maxFlow += flows[id];
+            maxFlow += flows[src][n];
         }
 
         std::cout << "The maximum flow is: " << maxFlow << "." << std::endl;

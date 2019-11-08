@@ -1,5 +1,6 @@
 #include <queue>
 #include <iostream>
+#include <graph/CSR_Graph.h>
 #include "algorithm/MaxFlow.h"
 #include "algorithm/BFS.h"
 
@@ -78,4 +79,112 @@ std::vector<long> MaxFlow(Graph &g, const long s, const long t) {
     }
 
     return flows;
+}
+
+using data_vec = std::vector<long>;
+
+static void process(long node, Graph &g, data_vec &heights, data_vec &excess, flow_vec &flow,
+        std::queue<long> &activeNodes, const long s, const long t, std::vector<bool> &isActive) {
+    std::cout << "Processing node: " << node << std::endl;
+    if (excess[node] > 0) {
+        long e = excess[node];
+        long h = std::numeric_limits<long>::max();
+        long nextV = -1;
+        data_vec neighbours = g.getNeighbours(node);
+
+        if (neighbours.empty()) return;
+
+        for (auto &n: neighbours) {
+            if (g.getEdgeWeight(node, n) - flow[node][n] <= 0) continue;
+
+            if (heights[n] < h) {
+                nextV = n;
+                h = heights[n];
+            }
+        }
+
+        if (heights[node] > h) {
+            long delta = std::min(e, g.getEdgeWeight(node, nextV) - flow[node][nextV]);
+            flow[node][nextV] += delta;
+            flow[nextV][node] -= delta;
+            excess[node] -= delta;
+            excess[nextV] += delta;
+
+            if (nextV != t && !isActive[nextV]) {
+                activeNodes.push(nextV);
+                isActive[nextV] = true;
+            }
+        } else {
+            heights[node] = h + 1;
+        }
+    } else {
+        activeNodes.pop();
+        isActive[node] = false;
+    }
+}
+
+static CSR_Graph createResidualGraph(Graph &g) {
+    std::cout << "Creating residual graph." << std::endl;
+    std::unordered_map<std::pair<long, long>, long> edges;
+
+    for (int i = 0; i < g.getNE(); ++i) {
+        auto srcdst = g.getSrcDstFromId(i);
+
+        if (edges.find(srcdst) != edges.end()) {
+            edges[srcdst] += g.getWeightFromId(i);
+        } else {
+            edges.insert(srcdst, g.getWeightFromId(i));
+        }
+
+        long src = srcdst.first;
+        long dst = srcdst.second;
+        auto revedge = std::make_pair(dst, src);
+
+        if (edges.find(revedge) != edges.end()) {
+            edges[revedge] += g.getWeightFromId(i);
+        } else {
+            edges.insert(revedge, g.getWeightFromId(i));
+        }
+    }
+
+    return CSR_Graph(edges);
+}
+
+// A lock free max flow algorithm
+flow_vec LFFlow(Graph &g, const long s, const long t) {
+    std::queue<long> activeNodes;
+    std::vector<bool> isActive(g.getNV(), false);
+
+    auto residualGraph = createResidualGraph(g);
+
+    data_vec capacities = residualGraph.getWeights();
+    data_vec residuals(residualGraph.getNE(), 0);
+
+    data_vec heights(g.getNV(), 0);
+    data_vec excess(g.getNV(), 0);
+    flow_vec flow(g.getNE(), std::vector<long>(g.getNE(), 0));
+
+    heights[s] = g.getNV();
+
+    // Initial preflow
+    std::vector<long> neighbours = g.getNeighbours(s);
+    for (auto &n : neighbours) {
+        flow[s][n] = g.getEdgeWeight(s, n);
+        flow[n][s] = -g.getEdgeWeight(s, n);
+        excess[n] = g.getEdgeWeight(s, n);
+        excess[s] = excess[s] - g.getEdgeWeight(s, n);
+
+        activeNodes.push(n);
+        isActive[n] = true;
+    }
+
+    std::cout << activeNodes.size() << std::endl;
+
+    while (excess[s] + excess[t] < 0) {
+        long curnode = activeNodes.front();
+
+        process(curnode, g, heights, excess, flow, activeNodes, s, t, isActive);
+    }
+
+    return flow;
 }

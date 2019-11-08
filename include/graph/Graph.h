@@ -13,6 +13,7 @@ protected:
 
 public:
     long getMaxDegreeNode() {
+        if (degrees.empty()) return -1;
         auto maxElement = std::max_element(degrees.begin(), degrees.end());
         return std::distance(degrees.begin(), maxElement);
     }
@@ -38,6 +39,9 @@ public:
     virtual long getIdFromSrcDst(long src, long dst)= 0;
 
     virtual long getWeightFromId(long id)= 0;
+
+    virtual std::vector<long> getWeights()= 0;
+
 };
 
 
