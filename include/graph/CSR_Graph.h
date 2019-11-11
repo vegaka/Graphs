@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 #include <tuple>
-#include <unordered_map>
 #include "Graph.h"
 
 class CSR_Graph : public Graph {
@@ -18,27 +17,27 @@ private:
     void edgeListToCSR(const std::vector<Edge>&);
 
 public:
-    explicit CSR_Graph(long nv, long ne, bool sym);
-
-    explicit CSR_Graph(const std::unordered_map<std::pair<long, long>, long>& edges);
 
     // Path points to a matrix market file
     explicit CSR_Graph(const std::string& path);
 
     long getEdgeWeight(long src, long dst) override;
 
-    std::vector<long> getNeighbours(long src) override;
+    std::vector<long> getNeighbours(long src, bool useNeighbourList) override;
 
     std::pair<long, long> getSrcDstFromId(long id) override;
 
     long getIdFromSrcDst(long src, long dst) override;
 
+    bool hasEdge(long src, long dst) override ;
+
     long getWeightFromId(long id) override;
     
     std::vector<long> getWeights() override;
 
-    friend std::ostream& operator<<(std::ostream& os, CSR_Graph g);
+    void createNeighbourList(bool undirected) override;
 
+    friend std::ostream& operator<<(std::ostream& os, CSR_Graph g);
 };
 
 

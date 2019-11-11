@@ -2,33 +2,6 @@
 #include <iostream>
 #include "graph/CSR_Graph.h"
 
-CSR_Graph::CSR_Graph(const long nv, const long ne, const bool sym) {
-    this->ne = ne;
-    this->nv = nv;
-    symmetric = sym;
-}
-
-CSR_Graph::CSR_Graph(const std::unordered_map<std::pair<long, long>, long>& edges) {
-    std::vector<Edge> edgeList;
-    nv = 0;
-
-    for (auto const& e : edges) {
-        long src = e.first.first;
-        long dst = e.first.second;
-        long weight = e.second;
-
-        edgeList.emplace_back(src, dst, weight);
-
-        nv = nv > src ? nv : src;
-        nv = nv > dst ? nv : dst;
-    }
-
-    symmetric = true;
-    ne = edgeList.size();
-
-    std::sort(edgeList.begin(), edgeList.end());
-    edgeListToCSR(edgeList);
-}
 
 CSR_Graph::CSR_Graph(const std::string& path) {
     std::ifstream ifs {path};
@@ -99,7 +72,11 @@ long CSR_Graph::getEdgeWeight(long src, long dst) {
     else return std::numeric_limits<int>::max();
 }
 
-std::vector<long> CSR_Graph::getNeighbours(long src) {
+std::vector<long> CSR_Graph::getNeighbours(long src, bool useNeighbourList) {
+    if (hasNeighbourList && useNeighbourList) {
+        return neighbourList[src];
+    }
+
     std::vector<long> neighbours;
     for (long i = rowPtr[src]; i < rowPtr[src + 1]; ++i) {
         neighbours.push_back(colIdx[i]);
@@ -134,6 +111,10 @@ long CSR_Graph::getIdFromSrcDst(long src, long dst) {
     return -1;
 }
 
+bool CSR_Graph::hasEdge(long src, long dst) {
+    return getIdFromSrcDst(src, dst) != -1;
+}
+
 long CSR_Graph::getWeightFromId(long id) {
     return w.at(id);
 }
@@ -163,4 +144,56 @@ std::ostream &operator<<(std::ostream &ostream, CSR_Graph g) {
 
     return ostream;
 }
+
+void CSR_Graph::createNeighbourList(bool undirected) {
+    // Dynamic graphs are not supported
+    if (hasNeighbourList) return;
+    undirectedNeighbourList = undirected;
+    undirectedNE = ne;
+
+    neighbourList.resize(nv, std::vector<long>());
+
+    for (long i = 0; i < nv; ++i) {
+        std::vector<long> neighbours = getNeighbours(i, false);
+        neighbourList[i].insert(neighbourList[i].end(), neighbours.begin(), neighbours.end());
+
+        if (undirected) {
+            for (long &n : neighbours) {
+                if (!hasEdge(n, i)) {
+                    neighbourList[n].emplace_back(i);
+                    undirectedNE++;
+                }
+            }
+        }
+    }
+
+    hasNeighbourList = true;
+}
+
+/*static CSR_Graph createResidualGraph(Graph &g) {
+    std::cout << "Creating residual graph." << std::endl;
+    std::unordered_map<std::pair<long, long>, long> edges;
+
+    for (int i = 0; i < g.getNE(); ++i) {
+        auto srcdst = g.getSrcDstFromId(i);
+
+        if (edges.find(srcdst) != edges.end()) {
+            edges[srcdst] += g.getWeightFromId(i);
+        } else {
+            edges.insert(srcdst, g.getWeightFromId(i));
+        }
+
+        long src = srcdst.first;
+        long dst = srcdst.second;
+        auto revedge = std::make_pair(dst, src);
+
+        if (edges.find(revedge) != edges.end()) {
+            edges[revedge] += g.getWeightFromId(i);
+        } else {
+            edges.insert(revedge, g.getWeightFromId(i));
+        }
+    }
+
+    return CSR_Graph(edges);
+}*/
 

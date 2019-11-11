@@ -11,6 +11,12 @@ protected:
     bool symmetric;
     unsigned long nv, ne;
 
+    // Neighbour lists for Max Flow
+    bool hasNeighbourList = false;
+    bool undirectedNeighbourList = false;
+    unsigned long undirectedNE;
+    std::vector<std::vector<long>> neighbourList;
+
 public:
     long getMaxDegreeNode() {
         if (degrees.empty()) return -1;
@@ -32,16 +38,39 @@ public:
 
     virtual long getEdgeWeight(long src, long dst)= 0;
 
-    virtual std::vector<long> getNeighbours(long src)= 0;
+    virtual std::vector<long> getNeighbours(long src, bool useNeighbourList)= 0;
 
     virtual std::pair<long, long> getSrcDstFromId(long id)= 0;
 
     virtual long getIdFromSrcDst(long src, long dst)= 0;
 
+    virtual bool hasEdge(long src, long dst)= 0;
+
     virtual long getWeightFromId(long id)= 0;
 
     virtual std::vector<long> getWeights()= 0;
 
+    virtual void createNeighbourList(bool undirected)= 0;
+
+    bool isNeighbourListUndirected() {
+        return undirectedNeighbourList;
+    }
+
+    bool isNeighbourListAvailable()  {
+        return hasNeighbourList;
+    }
+
+    unsigned long getUndirectedNumEdges() {
+        return undirectedNE;
+    }
+
+    std::vector<long> getNeighbourListFor(long node) {
+        if (hasNeighbourList) {
+            return neighbourList.at(node);
+        }
+
+        return std::vector<long>(0);
+    }
 };
 
 

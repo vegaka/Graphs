@@ -3,9 +3,7 @@
 
 #include "graph/Graph.h"
 
-using flow_vec = std::vector<std::vector<long>>;
-
 std::vector<long> MaxFlow(Graph &g, long s, long t);
-flow_vec LFFlow(Graph &g, long s, long t);
+std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, long s, long t);
 
 #endif //GRAPHS_MAXFLOW_H

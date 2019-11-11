@@ -75,13 +75,16 @@ static void testMF(int argc, char* argv[]) {
         std::cout << "Test" << std::endl;
 
         auto startTime = std::chrono::high_resolution_clock::now();
-        auto flows = LFFlow(g, src, sink);
+        auto mfResult = LFFlow(g, src, sink);
+        auto capacities = mfResult.first;
+        auto residuals = mfResult.second;
         auto endTime = std::chrono::high_resolution_clock::now();
 
         long maxFlow = 0;
-        auto neighbours = g.getNeighbours(src);
+        auto neighbours = g.getNeighbours(src, false);
         for (auto &n : neighbours) {
-            maxFlow += flows[src][n];
+            long edgeId = g.getIdFromSrcDst(src, n);
+            maxFlow += (capacities[edgeId] - residuals[edgeId]);
         }
 
         std::cout << "The maximum flow is: " << maxFlow << "." << std::endl;
