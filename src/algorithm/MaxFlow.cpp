@@ -84,7 +84,7 @@ using data_vec = std::vector<long>;
 
 static void process(long node, Graph &g, data_vec &heights, data_vec &excess, data_vec &capacities, data_vec &reverse,
         data_vec &residuals, std::queue<long> &activeNodes, std::vector<bool> &isActive, const long s, const long t) {
-    std::cout << "Processing node: " << node << std::endl;
+    //std::cout << "Processing node: " << node << std::endl;
     if (excess[node] > 0) {
         long e = excess[node];
         long h = std::numeric_limits<long>::max();
@@ -178,7 +178,7 @@ std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, const long s, c
     heights[s] = g.getNV();
 
     // Initial preflow
-    std::vector<long> neighbours = g.getNeighbours(s, true);
+    std::vector<long> neighbours = g.getNeighbours(s, false);
     for (auto &n : neighbours) {
         long edgeId = g.getIdFromSrcDst(s, n);
         residuals[edgeId] = 0;
