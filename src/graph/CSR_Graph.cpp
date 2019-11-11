@@ -24,8 +24,10 @@ CSR_Graph::CSR_Graph(const std::string& path) {
         nv = std::stoul(line);
         std::vector<long> degs(nv);
         std::vector<Edge> edges;
+        long edgeNum = 0;
 
         while (getline(ifs, line)) {
+            edgeNum++;
             // The MM file is assumed to be 1-indexed
             long src = std::stol(line) - 1;
             auto spacepos = line.find(' ');
@@ -39,12 +41,18 @@ CSR_Graph::CSR_Graph(const std::string& path) {
                 edges.emplace_back(dst, src, data);
                 degs[dst]++;
             }
+
+            if (edgeNum % 10000 == 0) {
+                std::cout << edgeNum << std::endl;
+            }
         }
 
         ne = edges.size();
         degrees = degs;
 
         std::sort(edges.begin(), edges.end());
+
+        std::cout << "Sorted" << std::endl;
 
         edgeListToCSR(edges);
 
@@ -87,6 +95,7 @@ std::vector<long> CSR_Graph::getNeighbours(long src, bool useNeighbourList) {
 
 std::pair<long, long> CSR_Graph::getSrcDstFromId(long id) {
     // Find src from id
+    // Should be done with a binary search
     long src = 0;
     for (auto i = rowPtr.size() - 1; i >= 0; --i) {
         if (rowPtr[i] > id) {

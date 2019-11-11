@@ -8,3 +8,5 @@ add_executable(graphs)
 target_include_directories(graphs PRIVATE include)
 
 add_subdirectory(src)
+
+target_link_libraries(graphs pthread)

@@ -1,90 +1,15 @@
+#include <algorithm/MaxFlow.h>
 #include <queue>
 #include <iostream>
-#include "algorithm/MaxFlow.h"
-#include "algorithm/BFS.h"
+#include <thread>
 
-static void preflow(Graph &g, std::vector<long> &flows, std::vector<long> &excess, const long s, std::queue<long> &activeNodes) {
-    auto neighbours = g.getNeighbours(s, false);
-    for (auto &n : neighbours) {
-        long id = g.getIdFromSrcDst(s, n);
-        flows[id] = g.getWeightFromId(id);
-        excess[n] += flows[id];
-        activeNodes.push(n);
-    }
-}
-
-static void push(Graph &g, std::vector<long> &flows, std::vector<long> &excess, std::vector<long> &distances,
-                 std::queue<long> &activeNodes, const long curNode, const long s, const long t) {
-    auto neighbours = g.getNeighbours(curNode, false);
-    for (auto &n : neighbours) {
-        if (distances[curNode] == distances[n] + 1) {
-
-            // Check that we have excess flow to push
-            if (excess[curNode] == 0) break;
-
-            long id = g.getIdFromSrcDst(curNode, n);
-            long res = g.getWeightFromId(id) - flows[id];
-            long delta = std::min(excess[curNode], res);
-            excess[curNode] -= delta;
-            excess[n] += delta;
-            flows[id] += delta;
-            if (n != s && n!= t) activeNodes.push(n);
-        }
-    }
-
-    if (excess[curNode] > 0) {
-        // Relabel
-        long newDist = std::numeric_limits<long>::max();
-        for (auto &n : neighbours) {
-            long id = g.getIdFromSrcDst(curNode, n);
-            if (g.getWeightFromId(id) - flows[id] > 0) {
-                newDist = std::min(newDist, distances[n] + 1);
-            }
-        }
-
-        distances[curNode] = newDist;
-        activeNodes.push(curNode);
-    }
-}
-
-// Implementation of the Preflow-Push algorithm
-std::vector<long> MaxFlow(Graph &g, const long s, const long t) {
-    std::cout << "Init" << std::endl;
-    std::vector<long> flows(g.getNE(), 0);
-    std::vector<long> distances = BFS(g, t);
-    std::vector<long> excess(g.getNV(), 0);
-    std::queue<long> activeNodes;
-
-
-    preflow(g, flows, excess, s, activeNodes);
-
-    std::cout << "Preflow:" << std::endl;
-    for (int i = 0; i < flows.size(); ++i) {
-        std::cout << i << " : " << flows[i] << std::endl;
-    }
-
-    distances[s] = g.getNV();
-
-    std::cout << "Distances:" << std::endl;
-    for (int i = 0; i < distances.size(); ++i) {
-        std::cout << i << " : " << distances[i] << std::endl;
-    }
-
-    while (!activeNodes.empty()) {
-        long curNode = activeNodes.front();
-        activeNodes.pop();
-
-        push(g, flows, excess, distances, activeNodes, curNode, s, t);
-    }
-
-    return flows;
-}
+#define DEFAULT_NUM_THREADS 4
 
 using data_vec = std::vector<long>;
 
 static void process(long node, Graph &g, data_vec &heights, data_vec &excess, data_vec &capacities, data_vec &reverse,
-        data_vec &residuals, std::queue<long> &activeNodes, std::vector<bool> &isActive, const long s, const long t) {
-    //std::cout << "Processing node: " << node << std::endl;
+                    data_vec &residuals, std::queue<long> &activeNodes, std::vector<bool> &isActive, const long s, const long t) {
+    std::cout << "Processing node: " << node << std::endl;
     if (excess[node] > 0) {
         long e = excess[node];
         long h = std::numeric_limits<long>::max();
@@ -131,12 +56,10 @@ static void process(long node, Graph &g, data_vec &heights, data_vec &excess, da
 
 static void fillReverseAndCapacityVectors(Graph &g, std::vector<long>& reverse, std::vector<long>& capacities) {
     long newEdges = 0;
-    long numEdges = 0;
 
     for (long i = 0; i < g.getNE(); ++i) {
         if (reverse[i] != -1) continue;
 
-        // TODO: Either speed up the method or change the code to not use it
         auto srcdst = g.getSrcDstFromId(i);
         long src = srcdst.first;
         long dst = srcdst.second;
@@ -156,26 +79,36 @@ static void fillReverseAndCapacityVectors(Graph &g, std::vector<long>& reverse, 
             capacities[i] += g.getWeightFromId(id);
             capacities[id] += g.getWeightFromId(i);
         }
-
-        numEdges++;
-        if (numEdges % 50000 == 0) {
-            std::cout << numEdges << std::endl;
-        }
     }
 }
 
-// A lock free max flow algorithm
-std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, const long s, const long t) {
+void execute(int tid) {
+    std::cout << "Thread num: " << tid << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+}
+
+// A parallel lock free max flow algorithm
+std::pair<std::vector<long>, std::vector<long>> PLFFlow(Graph &g, const long s, const long t) {
+    unsigned int numThreads = std::thread::hardware_concurrency();
+    if (numThreads == 0) numThreads = DEFAULT_NUM_THREADS;
+
+    std::vector<std::thread> threads(numThreads);
+    for (int i = 0; i < numThreads; ++i) {
+        threads[i] = std::thread(execute, i);
+    }
+
+    for (int i = 0; i < numThreads; ++i) {
+        threads[i].join();
+    }
+
     std::queue<long> activeNodes;
     std::vector<bool> isActive(g.getNV(), false);
 
-    std::cout << "Creating neighbour lists" << std::endl;
     g.createNeighbourList(true);
 
     data_vec capacities = g.getWeights();
     capacities.resize(g.getUndirectedNumEdges(), 0);
     data_vec reverse(g.getUndirectedNumEdges(), -1);
-    std::cout << "Filling reverse and capacity vectors" << std::endl;
     fillReverseAndCapacityVectors(g, reverse, capacities);
 
     data_vec residuals = g.getWeights();
@@ -186,7 +119,6 @@ std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, const long s, c
 
     heights[s] = g.getNV();
 
-    std::cout << "Creating initial preflow" << std::endl;
     // Initial preflow
     std::vector<long> neighbours = g.getNeighbours(s, false);
     for (auto &n : neighbours) {

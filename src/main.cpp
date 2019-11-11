@@ -70,15 +70,16 @@ static void testMF(int argc, char* argv[]) {
     if (argc == 2) {
         CSR_Graph g {argv[1]};
         long src = 0;
-        long sink = 7;
+        long sink = 1000000 - 1;
 
-        std::cout << "Test" << std::endl;
+        //auto pmfRes = PLFFlow(g, src, sink);
 
         auto startTime = std::chrono::high_resolution_clock::now();
         auto mfResult = LFFlow(g, src, sink);
+        auto endTime = std::chrono::high_resolution_clock::now();
         auto capacities = mfResult.first;
         auto residuals = mfResult.second;
-        auto endTime = std::chrono::high_resolution_clock::now();
+
 
         long maxFlow = 0;
         auto neighbours = g.getNeighbours(src, false);
