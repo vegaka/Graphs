@@ -27,7 +27,7 @@ std::pair<std::vector<long>, std::vector<long>> Dijkstra(Graph &g, const long st
         const long curSrc = queue.top();
         queue.pop();
 
-        std::vector<long> neighbours = g.getNeighbours(curSrc);
+        std::vector<long> neighbours = g.getNeighbours(curSrc, false);
 
         for (long dst: neighbours) {
             long w = g.getEdgeWeight(curSrc, dst);
@@ -48,7 +48,7 @@ std::pair<std::vector<long>, std::vector<long>> BellmanFord(Graph &g, const long
 
     for (long i = 0; i < g.getNV(); ++i) {
         for (long j = 0; j < g.getNV(); ++j) {
-            std::vector<long> neighbours = g.getNeighbours(j);
+            std::vector<long> neighbours = g.getNeighbours(j, false);
 
             for (long dst: neighbours) {
                 long w = g.getEdgeWeight(j, dst);
