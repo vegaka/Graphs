@@ -81,8 +81,6 @@ std::vector<long> MaxFlow(Graph &g, const long s, const long t) {
     return flows;
 }
 
-using data_vec = std::vector<long>;
-
 static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_vec &wave, data_vec &reverse,
                         data_vec &color, long startVertex, long startLevel, long currentWave) {
     long coloredVertices = 0;
@@ -166,7 +164,7 @@ static void processWithRelabel(long node, Graph &g, data_vec &heights, data_vec 
                 excess[node] -= delta;
                 excess[nextV] += delta;
 
-                if (nextV != t && !isActive[nextV]) {
+                if (nextV != t && nextV != s && !isActive[nextV]) {
                     activeNodes.push(nextV);
                     isActive[nextV] = true;
                 }
@@ -213,7 +211,7 @@ static void process(long node, Graph &g, data_vec &heights, data_vec &excess, da
             excess[node] -= delta;
             excess[nextV] += delta;
 
-            if (nextV != t && !isActive[nextV]) {
+            if (nextV != t && nextV != s && !isActive[nextV]) {
                 activeNodes.push(nextV);
                 isActive[nextV] = true;
             }
@@ -311,10 +309,11 @@ std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, const long s, c
         isActive[n] = true;
     }
 
-    std::cout << activeNodes.size() << std::endl;
+    std::cout << "Active initial nodes: " << activeNodes.size() << std::endl;
 
     const int itersBetweenGlobalRelabel = std::floor(g.getNV() / 2);
     int itersSinceGlobalRelabel = 0;
+    unsigned long totalIters = 0;
 
     while (excess[s] + excess[t] < 0) {
         long curnode = activeNodes.front();
@@ -331,6 +330,11 @@ std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, const long s, c
             globalRelabel(g, heights, residuals, wave, reverse, s, t, currentWave);
             //std::cout << "Finished global relabel" << std::endl;
             itersSinceGlobalRelabel = 0;
+        }
+
+        totalIters++;
+        if (totalIters % 10000000 == 0) {
+            std::cout << "Total iterations: " << totalIters << std::endl;
         }
     }
 
