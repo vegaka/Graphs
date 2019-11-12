@@ -15,7 +15,7 @@ static void process(long node, Graph &g, data_vec &heights, data_vec &excess, da
         long h = std::numeric_limits<long>::max();
         long nextV = -1;
         long edgeId = -1;
-        data_vec neighbours = g.getNeighbours(node, true);
+        data_vec neighbours = g.getNeighbourListFor(node);
 
         if (neighbours.empty()) return;
 
@@ -120,7 +120,7 @@ std::pair<std::vector<long>, std::vector<long>> PLFFlow(Graph &g, const long s, 
     heights[s] = g.getNV();
 
     // Initial preflow
-    std::vector<long> neighbours = g.getNeighbours(s, false);
+    std::vector<long> neighbours = g.getNeighbours(s);
     for (auto &n : neighbours) {
         long edgeId = g.getIdFromSrcDst(s, n);
         residuals[edgeId] = 0;

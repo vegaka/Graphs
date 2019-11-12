@@ -159,7 +159,7 @@ void CSR_Graph::createNeighbourList(bool undirected) {
     neighbourList.resize(nv, std::vector<long>());
 
     for (long i = 0; i < nv; ++i) {
-        std::vector<long> neighbours = getNeighbours(i, false);
+        std::vector<long> neighbours = getNeighbours(i);
         neighbourList[i].insert(neighbourList[i].end(), neighbours.begin(), neighbours.end());
 
         if (undirected) {
