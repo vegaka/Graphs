@@ -12,7 +12,7 @@ std::vector<long> BFS(Graph &g, const long src) {
         long curNode = q.front();
         q.pop();
 
-        auto neighbours = g.getNeighbours(curNode, false);
+        auto neighbours = g.getNeighbours(curNode);
         for (auto &n : neighbours) {
             if (distances[n] == -1) {
                 distances[n] = distances[curNode] + 1;

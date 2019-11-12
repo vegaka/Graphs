@@ -80,11 +80,7 @@ long CSR_Graph::getEdgeWeight(long src, long dst) {
     else return std::numeric_limits<int>::max();
 }
 
-std::vector<long> CSR_Graph::getNeighbours(long src, bool useNeighbourList) {
-    if (hasNeighbourList && useNeighbourList) {
-        return neighbourList[src];
-    }
-
+std::vector<long> CSR_Graph::getNeighbours(long src) {
     std::vector<long> neighbours;
     for (long i = rowPtr[src]; i < rowPtr[src + 1]; ++i) {
         neighbours.push_back(colIdx[i]);

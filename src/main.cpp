@@ -82,7 +82,7 @@ static void testMF(int argc, char* argv[]) {
 
 
         long maxFlow = 0;
-        auto neighbours = g.getNeighbours(src, false);
+        auto neighbours = g.getNeighbours(src);
         for (auto &n : neighbours) {
             long edgeId = g.getIdFromSrcDst(src, n);
             maxFlow += (capacities[edgeId] - residuals[edgeId]);

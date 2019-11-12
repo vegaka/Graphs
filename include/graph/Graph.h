@@ -38,7 +38,7 @@ public:
 
     virtual long getEdgeWeight(long src, long dst)= 0;
 
-    virtual std::vector<long> getNeighbours(long src, bool useNeighbourList)= 0;
+    virtual std::vector<long> getNeighbours(long src)= 0;
 
     virtual std::pair<long, long> getSrcDstFromId(long id)= 0;
 

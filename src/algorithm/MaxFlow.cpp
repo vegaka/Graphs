@@ -4,7 +4,7 @@
 #include "algorithm/BFS.h"
 
 static void preflow(Graph &g, std::vector<long> &flows, std::vector<long> &excess, const long s, std::queue<long> &activeNodes) {
-    auto neighbours = g.getNeighbours(s, false);
+    auto neighbours = g.getNeighbours(s);
     for (auto &n : neighbours) {
         long id = g.getIdFromSrcDst(s, n);
         flows[id] = g.getWeightFromId(id);
@@ -15,7 +15,7 @@ static void preflow(Graph &g, std::vector<long> &flows, std::vector<long> &exces
 
 static void push(Graph &g, std::vector<long> &flows, std::vector<long> &excess, std::vector<long> &distances,
                  std::queue<long> &activeNodes, const long curNode, const long s, const long t) {
-    auto neighbours = g.getNeighbours(curNode, false);
+    auto neighbours = g.getNeighbours(curNode);
     for (auto &n : neighbours) {
         if (distances[curNode] == distances[n] + 1) {
 
@@ -90,7 +90,7 @@ static void process(long node, Graph &g, data_vec &heights, data_vec &excess, da
         long h = std::numeric_limits<long>::max();
         long nextV = -1;
         long edgeId = -1;
-        data_vec neighbours = g.getNeighbours(node, true);
+        data_vec neighbours = g.getNeighbourListFor(node);
 
         if (neighbours.empty()) return;
 
@@ -188,7 +188,7 @@ std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, const long s, c
 
     std::cout << "Creating initial preflow" << std::endl;
     // Initial preflow
-    std::vector<long> neighbours = g.getNeighbours(s, false);
+    std::vector<long> neighbours = g.getNeighbours(s);
     for (auto &n : neighbours) {
         long edgeId = g.getIdFromSrcDst(s, n);
         residuals[edgeId] = 0;
