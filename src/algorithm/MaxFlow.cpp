@@ -133,33 +133,46 @@ static void fillReverseAndCapacityVectors(Graph &g, std::vector<long>& reverse, 
     long newEdges = 0;
     long numEdges = 0;
 
-    for (long i = 0; i < g.getNE(); ++i) {
-        if (reverse[i] != -1) continue;
+    for (int i = 0; i < g.getNV(); ++i) {
+        std::vector<long> neighbours = g.getNeighbourListFor(i);
 
-        // TODO: Either speed up the method or change the code to not use it
-        auto srcdst = g.getSrcDstFromId(i);
-        long src = srcdst.first;
-        long dst = srcdst.second;
+        for (auto &n : neighbours) {
+            long edgeId = g.getIdFromSrcDst(i, n);
+            long revEdgeId = g.getIdFromSrcDst(n, i);
 
-        if (!g.hasEdge(dst, src)) {
-            reverse[i] = g.getNE() + newEdges;
-            reverse[g.getNE() + newEdges] = i;
+            // Don't process and edge if the reverse has already been processed
+            if (reverse[std::max(edgeId, revEdgeId)] != -1) continue;
 
-            capacities[g.getNE() + newEdges] = g.getWeightFromId(i);
+            if (edgeId == -1) {
+                // This edge was created when undirecting the graph
+                // The reverse edge has to exist so revEdgeId != -1
+                reverse[revEdgeId] = g.getNE() + newEdges;
+                reverse[g.getNE() + newEdges] = revEdgeId;
 
-            newEdges++;
-        } else {
-            long id = g.getIdFromSrcDst(dst, src);
-            reverse[id] = i;
-            reverse[i] = id;
+                capacities[g.getNE() + newEdges] = g.getWeightFromId(revEdgeId);
 
-            capacities[i] += g.getWeightFromId(id);
-            capacities[id] += g.getWeightFromId(i);
-        }
+                newEdges++;
+            } else if (revEdgeId == -1) {
+                // The reverse edge was created when undirecting the graph
+                reverse[edgeId] = g.getNE() + newEdges;
+                reverse[g.getNE() + newEdges] = edgeId;
 
-        numEdges++;
-        if (numEdges % 50000 == 0) {
-            std::cout << numEdges << std::endl;
+                capacities[g.getNE() + newEdges] = g.getWeightFromId(edgeId);
+
+                newEdges++;
+            } else {
+                // Both edges exists in the original graph
+                reverse[edgeId] = revEdgeId;
+                reverse[revEdgeId] = edgeId;
+
+                capacities[edgeId] += g.getWeightFromId(revEdgeId);
+                capacities[revEdgeId] += g.getWeightFromId(edgeId);
+            }
+
+            numEdges++;
+            if (numEdges % 50000 == 0) {
+                std::cout << numEdges << std::endl;
+            }
         }
     }
 }
