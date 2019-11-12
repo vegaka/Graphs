@@ -4,7 +4,7 @@
 #include "graph/Graph.h"
 
 std::vector<long> MaxFlow(Graph &g, long s, long t);
-std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, long s, long t);
+std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, long s, long t, bool globalRelabeling);
 std::pair<std::vector<long>, std::vector<long>> PLFFlow(Graph &g, long s, long t);
 
 #endif //GRAPHS_MAXFLOW_H
