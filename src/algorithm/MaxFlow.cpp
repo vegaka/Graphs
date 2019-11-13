@@ -286,7 +286,7 @@ static void fillReverseVector(Graph &g, std::vector<long>& reverse) {
 }
 
 // A lock free max flow algorithm
-std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, const long s, const long t, bool globalRelabeling) {
+long LFFlow(Graph &g, const long s, const long t, bool globalRelabeling) {
     std::queue<long> activeNodes;
     std::vector<bool> isActive(g.getNV(), false);
 
@@ -353,5 +353,12 @@ std::pair<std::vector<long>, std::vector<long>> LFFlow(Graph &g, const long s, c
         }
     }
 
-    return std::make_pair(capacities, residuals);
+    long maxFlow = 0;
+    neighbours = g.getNeighbours(s);
+    for (auto &n : neighbours) {
+        long edgeId = g.getIdFromSrcDst(s, n);
+        maxFlow += (capacities[edgeId] - residuals[edgeId]);
+    }
+
+    return maxFlow;
 }

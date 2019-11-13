@@ -73,33 +73,15 @@ static void testMF(int argc, char* argv[]) {
         long sink = 7999;
 
         auto pstartTime = std::chrono::high_resolution_clock::now();
-        auto pmfResult = PLFFlow(g, src, sink);
+        auto pmaxFlow = PLFFlow(g, src, sink);
         auto pendTime = std::chrono::high_resolution_clock::now();
-        auto pcapacities = pmfResult.first;
-        auto presiduals = pmfResult.second;
-
-        long pmaxFlow = 0;
-        auto neighbours = g.getNeighbours(src);
-        for (auto &n : neighbours) {
-            long edgeId = g.getIdFromSrcDst(src, n);
-            pmaxFlow += (pcapacities[edgeId] - presiduals[edgeId]);
-        }
 
         auto startTime = std::chrono::high_resolution_clock::now();
-        auto mfResult = LFFlow(g, src, sink, true);
+        auto maxFlow = LFFlow(g, src, sink, true);
         auto endTime = std::chrono::high_resolution_clock::now();
-        auto capacities = mfResult.first;
-        auto residuals = mfResult.second;
-
-
-        long maxFlow = 0;
-        for (auto &n : neighbours) {
-            long edgeId = g.getIdFromSrcDst(src, n);
-            maxFlow += (capacities[edgeId] - residuals[edgeId]);
-        }
 
         std::cout << "=======================================" << std::endl;
-        std::cout << "(Parallel) The maximum flow is: " << maxFlow << "." << std::endl;
+        std::cout << "(Parallel) The maximum flow is: " << pmaxFlow << "." << std::endl;
         std::cout << "(Parallel) Time spent (ms): "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(pendTime - pstartTime).count()
                   << std::endl;
