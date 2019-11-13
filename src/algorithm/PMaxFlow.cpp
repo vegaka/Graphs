@@ -9,23 +9,45 @@
 
 using data_vec = std::vector<long>;
 
-static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_vec &wave, data_vec &reverse,
-                        data_vec &color, long startVertex, long startLevel, long currentWave) {
-    long coloredVertices = 0;
-    long currentLevel = startLevel;
+// Simple BFS from the sink to create the initial distance labels
+static void createDistanceLabels(Graph &g, data_vec &heights, long t) {
+    long level = 0;
     std::queue<long> queue;
-    queue.push(startVertex);
+    queue.push(t);
+    heights[t] = level;
 
     while(!queue.empty()) {
         long curNode = queue.front();
         queue.pop();
 
-        currentLevel++;
+        data_vec neighbours = g.getNeighbourListFor(curNode);
+        for (auto &n : neighbours) {
+            if (heights[n] == -1) {
+                heights[n] = heights[curNode] + 1;
+                queue.push(n);
+            }
+        }
+    }
+}
+
+static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_vec &wave, data_vec &reverse,
+                        data_vec &color, long startVertex, long startLevel, long currentWave) {
+    long coloredVertices = 0;
+    std::queue<long> queue;
+    queue.push(startVertex);
+    color[startVertex] = 1;
+    heights[startVertex] = startLevel;
+    wave[startVertex] = currentWave;
+
+    while(!queue.empty()) {
+        long curNode = queue.front();
+        queue.pop();
+
         data_vec neighbours = g.getNeighbourListFor(curNode);
         long edgeId;
         for (auto &n : neighbours) {
-            edgeId = g.getIdFromSrcDst(curNode, n);
-            edgeId = edgeId == -1 ? reverse[g.getIdFromSrcDst(n, curNode)] : edgeId;
+            edgeId = g.getIdFromSrcDst(n, curNode);
+            edgeId = edgeId == -1 ? reverse[g.getIdFromSrcDst(curNode, n)] : edgeId;
 
             if (residuals[edgeId] <= 0) continue;
 
@@ -33,9 +55,8 @@ static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_v
                 color[n] = 1;
                 coloredVertices++;
 
-                if (heights[n] < currentLevel) {
-                    heights[n] = currentLevel;
-                }
+                heights[n] = heights[curNode] + 1;
+
                 wave[n] = currentWave;
                 queue.push(n);
             }
@@ -48,7 +69,7 @@ static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_v
 static void globalRelabel(Graph &g, data_vec &heights, data_vec &residuals, data_vec &wave, data_vec &reverse,
                           const long s, const long t, long &currentWave) {
     currentWave++;
-    data_vec color(g.getNE(), 0);
+    data_vec color(g.getNV(), 0);
     std::queue<long> queue;
     long coloredVertices = BFSColoring(g, heights, residuals, wave, reverse, color, t, 0, currentWave);
     if (coloredVertices < g.getNV()) {
@@ -57,8 +78,8 @@ static void globalRelabel(Graph &g, data_vec &heights, data_vec &residuals, data
 }
 
 static void processWithRelabel(long node, Graph &g, std::queue<long> &queue, data_vec &heights,
-                               std::vector<std::atomic_long> &excess, data_vec &capacities, data_vec &reverse,
-                               std::vector<std::atomic_long> &residuals, data_vec &wave, std::vector<bool> &isActive,
+                               std::vector<std::atomic_long> &excess, data_vec &reverse,
+                               std::atomic_long *residuals, data_vec &wave, std::vector<bool> &isActive,
                                const long s, const long t) {
     //std::cout << "Processing node: " << node << std::endl;
     while (excess[node] > 0) {
@@ -107,19 +128,18 @@ static void processWithRelabel(long node, Graph &g, std::queue<long> &queue, dat
 }
 
 static void execute(int threadId, Graph &g, std::queue<long> &queue, data_vec &heights,
-                    std::vector<std::atomic_long> &excess, data_vec &capacities, data_vec &reverse,
-                    std::vector<std::atomic_long> &residuals, data_vec &wave, std::vector<bool> &isActive,
-                    const long s, const long t) {
+                    std::vector<std::atomic_long> &excess, data_vec &reverse, std::atomic_long *residuals,
+                    data_vec &wave, std::vector<bool> &isActive, const long s, const long t) {
     std::cout << "Thread id: " << threadId << std::endl;
     if (queue.empty()) return;
     while (excess[s] + excess[t] < 0 && !queue.empty()) {
         long curNode = queue.front();
 
-        processWithRelabel(curNode, g, queue, heights, excess, capacities, reverse, residuals, wave, isActive, s, t);
+        processWithRelabel(curNode, g, queue, heights, excess, reverse, residuals, wave, isActive, s, t);
     }
 }
 
-static void fillReverseAndCapacityVectors(Graph &g, std::vector<long>& reverse, std::vector<long>& capacities) {
+static void fillReverseVector(Graph &g, std::vector<long>& reverse) {
     long newEdges = 0;
     long numEdges = 0;
 
@@ -139,24 +159,17 @@ static void fillReverseAndCapacityVectors(Graph &g, std::vector<long>& reverse, 
                 reverse[revEdgeId] = g.getNE() + newEdges;
                 reverse[g.getNE() + newEdges] = revEdgeId;
 
-                capacities[g.getNE() + newEdges] = g.getWeightFromId(revEdgeId);
-
                 newEdges++;
             } else if (revEdgeId == -1) {
                 // The reverse edge was created when undirecting the graph
                 reverse[edgeId] = g.getNE() + newEdges;
                 reverse[g.getNE() + newEdges] = edgeId;
 
-                capacities[g.getNE() + newEdges] = g.getWeightFromId(edgeId);
-
                 newEdges++;
             } else {
                 // Both edges exists in the original graph
                 reverse[edgeId] = revEdgeId;
                 reverse[revEdgeId] = edgeId;
-
-                capacities[edgeId] += g.getWeightFromId(revEdgeId);
-                capacities[revEdgeId] += g.getWeightFromId(edgeId);
             }
 
             numEdges++;
@@ -168,7 +181,7 @@ static void fillReverseAndCapacityVectors(Graph &g, std::vector<long>& reverse, 
 }
 
 // A parallel lock free max flow algorithm
-std::pair<data_vec, data_vec> PLFFlow(Graph &g, const long s, const long t) {
+long PLFFlow(Graph &g, const long s, const long t) {
     std::vector<bool> isActive(g.getNV(), false);
 
     unsigned int numThreads = std::thread::hardware_concurrency();
@@ -186,12 +199,18 @@ std::pair<data_vec, data_vec> PLFFlow(Graph &g, const long s, const long t) {
     data_vec capacities = g.getWeights();
     capacities.resize(g.getUndirectedNumEdges(), 0);
     data_vec reverse(g.getUndirectedNumEdges(), -1);
-    std::cout << "Filling reverse and capacity vectors" << std::endl;
-    fillReverseAndCapacityVectors(g, reverse, capacities);
+    std::cout << "Filling reverse vector" << std::endl;
+    fillReverseVector(g, reverse);
 
-    std::vector<std::atomic_long> residuals(capacities.begin(), capacities.end());
+    //std::vector<std::atomic_long> residuals(g.getUndirectedNumEdges());
+    //std::atomic_long residuals[g.getUndirectedNumEdges()];
+    //auto *residuals = static_cast<std::atomic_long *>(malloc(
+    //        g.getUndirectedNumEdges() * sizeof(std::atomic_long)));
+    auto residuals = new std::atomic_long[g.getUndirectedNumEdges()];
+    for (size_t i = 0; i < capacities.size(); ++i) {
+        residuals[i].store(capacities[i]);
+    }
 
-    data_vec heights(g.getNV(), 0);
     std::vector<std::atomic_long> excess(g.getNV());
     for (auto & e : excess) {
         e.store(0);
@@ -200,6 +219,8 @@ std::pair<data_vec, data_vec> PLFFlow(Graph &g, const long s, const long t) {
     data_vec wave(g.getNV(), 0);
     long currentWave = 0;
 
+    data_vec heights(g.getNV(), -1);
+    createDistanceLabels(g, heights, t);
     heights[s] = g.getNV();
 
     std::cout << "Creating initial preflow" << std::endl;
@@ -209,7 +230,7 @@ std::pair<data_vec, data_vec> PLFFlow(Graph &g, const long s, const long t) {
         long n = neighbours[i];
         long edgeId = g.getIdFromSrcDst(s, n);
         residuals[edgeId].store(0);
-        residuals[reverse[edgeId]].store(capacities[edgeId]);
+        residuals[reverse[edgeId]].store(capacities[reverse[edgeId]] + capacities[edgeId]);
         excess[n].store(g.getWeightFromId(edgeId));
         excess[s].store(excess[s] - g.getWeightFromId(edgeId));
 
@@ -223,7 +244,7 @@ std::pair<data_vec, data_vec> PLFFlow(Graph &g, const long s, const long t) {
 
     for (int i = 0; i < threads.size(); ++i) {
         threads[i] = std::thread(execute, i, std::ref(g), std::ref(queues[i]), std::ref(heights), std::ref(excess),
-                                 std::ref(capacities), std::ref(reverse), std::ref(residuals), std::ref(wave), std::ref(isActive), s, t);
+                                 std::ref(reverse), residuals, std::ref(wave), std::ref(isActive), s, t);
     }
 
     for (auto &thread : threads) {
@@ -251,5 +272,14 @@ std::pair<data_vec, data_vec> PLFFlow(Graph &g, const long s, const long t) {
         }
     }*/
 
-    return std::make_pair(capacities, heights);
+    long maxFlow = 0;
+    neighbours = g.getNeighbours(s);
+    for (auto &n : neighbours) {
+        long edgeId = g.getIdFromSrcDst(s, n);
+        maxFlow += (capacities[edgeId] - residuals[edgeId].load());
+    }
+
+    delete[] residuals;
+
+    return maxFlow;
 }

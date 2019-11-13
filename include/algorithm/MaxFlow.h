@@ -1,7 +1,6 @@
 #ifndef GRAPHS_MAXFLOW_H
 #define GRAPHS_MAXFLOW_H
 
-#include <atomic>
 #include "graph/Graph.h"
 
 using data_vec = std::vector<long>;

@@ -70,7 +70,7 @@ static void testMF(int argc, char* argv[]) {
     if (argc == 2) {
         CSR_Graph g {argv[1]};
         long src = 0;
-        long sink = 7999;
+        long sink = 999;
 
         auto pstartTime = std::chrono::high_resolution_clock::now();
         auto pmaxFlow = PLFFlow(g, src, sink);
@@ -86,8 +86,8 @@ static void testMF(int argc, char* argv[]) {
                   << std::chrono::duration_cast<std::chrono::milliseconds>(pendTime - pstartTime).count()
                   << std::endl;
 
-        std::cout << "The maximum flow is: " << maxFlow << "." << std::endl;
-        std::cout << "Time spent (ms): "
+        std::cout << "(Single) The maximum flow is: " << maxFlow << "." << std::endl;
+        std::cout << "(Single) Time spent (ms): "
                   << std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count()
                   << std::endl;
     }
