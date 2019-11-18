@@ -71,6 +71,10 @@ public:
 
         return std::vector<long>(0);
     }
+
+    bool isValidNode(long node) {
+        return node >= 0 && node < nv;
+    }
 };
 
 
