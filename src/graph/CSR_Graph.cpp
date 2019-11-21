@@ -174,31 +174,3 @@ void CSR_Graph::createNeighbourList(bool undirected) {
 
     hasNeighbourList = true;
 }
-
-/*static CSR_Graph createResidualGraph(Graph &g) {
-    std::cout << "Creating residual graph." << std::endl;
-    std::unordered_map<std::pair<long, long>, long> edges;
-
-    for (int i = 0; i < g.getNE(); ++i) {
-        auto srcdst = g.getSrcDstFromId(i);
-
-        if (edges.find(srcdst) != edges.end()) {
-            edges[srcdst] += g.getWeightFromId(i);
-        } else {
-            edges.insert(srcdst, g.getWeightFromId(i));
-        }
-
-        long src = srcdst.first;
-        long dst = srcdst.second;
-        auto revedge = std::make_pair(dst, src);
-
-        if (edges.find(revedge) != edges.end()) {
-            edges[revedge] += g.getWeightFromId(i);
-        } else {
-            edges.insert(revedge, g.getWeightFromId(i));
-        }
-    }
-
-    return CSR_Graph(edges);
-}*/
-
