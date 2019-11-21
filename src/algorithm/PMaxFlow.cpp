@@ -13,7 +13,7 @@ using data_vec = std::vector<long>;
 static void createDistanceLabels(Graph &g, data_vec &heights, long t) {
     long level = 0;
     std::queue<long> queue;
-    queue.push(t);
+    queue.emplace(t);
     heights[t] = level;
 
     while(!queue.empty()) {
@@ -24,7 +24,7 @@ static void createDistanceLabels(Graph &g, data_vec &heights, long t) {
         for (auto &n : neighbours) {
             if (heights[n] == -1) {
                 heights[n] = heights[curNode] + 1;
-                queue.push(n);
+                queue.emplace(n);
             }
         }
     }
@@ -34,7 +34,7 @@ static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_v
                         data_vec &color, long startVertex, long startLevel, long currentWave) {
     long coloredVertices = 0;
     std::queue<long> queue;
-    queue.push(startVertex);
+    queue.emplace(startVertex);
     color[startVertex] = 1;
     heights[startVertex] = startLevel;
     wave[startVertex] = currentWave;
@@ -58,7 +58,7 @@ static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_v
                 heights[n] = heights[curNode] + 1;
 
                 wave[n] = currentWave;
-                queue.push(n);
+                queue.emplace(n);
             }
         }
     }
@@ -80,10 +80,11 @@ static void globalRelabel(Graph &g, data_vec &heights, data_vec &residuals, data
 static void processWithRelabel(long node, Graph &g, std::queue<long> &queue, data_vec &heights,
                                std::vector<std::atomic_long> &excess, data_vec &reverse,
                                std::atomic_long *residuals, data_vec &wave, std::vector<std::atomic_bool> &isActive,
-                               const long s, const long t) {
+                               const long s, const long t, std::atomic_long &numAvailableNodes) {
 
     if (!g.isValidNode(node)) {
         queue.pop();
+        numAvailableNodes.fetch_sub(1);
         return;
     }
 
@@ -96,6 +97,7 @@ static void processWithRelabel(long node, Graph &g, std::queue<long> &queue, dat
         if (neighbours.empty() || node == s || node == t) {
             queue.pop();
             isActive[node].store(false);
+            numAvailableNodes.fetch_sub(1);
             return;
         }
 
@@ -112,6 +114,8 @@ static void processWithRelabel(long node, Graph &g, std::queue<long> &queue, dat
             }
         }
 
+        if (!g.isValidNode(nextV)) return;
+
         if (heights[node] > h) {
             long delta = std::min(excess[node].load(), residuals[lowEdgeId].load());
             if (wave[node] <= wave[nextV] && heights[node] > heights[nextV]) {
@@ -120,9 +124,12 @@ static void processWithRelabel(long node, Graph &g, std::queue<long> &queue, dat
                 excess[node].fetch_sub(delta);
                 excess[nextV].fetch_add(delta);
 
-                if (!isActive[nextV].load()) {
-                    isActive[nextV].store(true);
+                if (nextV == s || nextV == t) continue;
+
+                bool ref = false;
+                if (isActive[nextV].compare_exchange_strong(ref, true)) {
                     queue.emplace(nextV);
+                    numAvailableNodes.fetch_add(1);
                 }
             }
         } else if (heights[node] < h + 1){
@@ -132,95 +139,104 @@ static void processWithRelabel(long node, Graph &g, std::queue<long> &queue, dat
 
     queue.pop();
     isActive[node].store(false);
+    numAvailableNodes.fetch_sub(1);
 }
 
 struct ExchangeFlag {
-    std::atomic_int flag;
+    std::atomic_bool flag;
     int receiver;
 };
 
 static void sendActiveNodes(int from, std::vector<std::queue<long>> &queues, std::vector<ExchangeFlag> &exchange) {
     int receiver = exchange[from].receiver;
+    if (receiver == from) {
+        std::cerr << "Thread " << from << ": Receiver not set." << std::endl;
+        exchange[from].flag.store(false);
+        return;
+    }
     int nodesToSend;// = std::floor(queues[from].size() / 2);
     nodesToSend = 1;
+    size_t initSize = queues[from].size();
+    size_t recInitSize = queues[receiver].size();
     for (int i = 0; i < nodesToSend; ++i) {
         queues[receiver].emplace(queues[from].front());
         queues[from].pop();
     }
+    size_t endSize = queues[from].size();
+    size_t recSize = queues[receiver].size();
 
-    exchange[receiver].flag.store(0);
-    exchange[from].flag.store(0);
+    if (recInitSize != 0) {
+        std::cerr << "Thread " << from << " is sending nodes to thread " << receiver << std::endl;
+        std::cerr << "(initSize, endSize, recSize, recInitSize) = (" << initSize << "," << endSize;
+        std::cerr << "," << recSize << "," << recInitSize << ")" << std::endl;
+    }
+
+    exchange[receiver].flag.store(false);
+    exchange[from].flag.store(false);
+    exchange[receiver].receiver = receiver;
+    exchange[from].receiver = from;
 }
 
-static bool requestActiveNodes(int threadId, std::vector<std::queue<long>> &queues, std::vector<ExchangeFlag> &exchange) {
+static void requestActiveNodes(int threadId, std::vector<std::queue<long>> &queues, std::vector<ExchangeFlag> &exchange) {
     std::vector<int> possibleQueues;
-    bool nodesAvailable = false;
 
     for (size_t i = 0; i < queues.size(); ++i) {
-        if (queues[i].size() >= 2 && !exchange[i].flag.load()) {
-            possibleQueues.emplace_back(i);
-        }
-
-        nodesAvailable = !queues[i].empty() ? true : nodesAvailable;
-    }
-
-    if (!possibleQueues.empty()) {
-        int queue = possibleQueues.front();
-        int ref = 0;
-        if (exchange[queue].flag.compare_exchange_strong(ref, 1)) {
-            if (exchange[threadId].flag.compare_exchange_strong(ref, 1)) {
-                exchange[queue].receiver = threadId;
+        if (i == threadId) continue;
+        if (!queues[i].empty()) {
+            bool ref = false;
+            if (exchange[i].flag.compare_exchange_strong(ref, true)) {
+                exchange[i].receiver = threadId;
+                ref = false;
+                if (exchange[threadId].flag.compare_exchange_strong(ref, true)) {
+                    exchange[threadId].receiver = i;
+                    break;
+                } else {
+                    exchange[i].flag.store(false);
+                    exchange[i].receiver = i;
+                }
             }
-        } else {
-            exchange[queue].flag.store(0);
         }
     }
-
-    return nodesAvailable;
 }
 
 static void execute(int threadId, Graph &g, std::vector<std::queue<long>> &queues, data_vec &heights,
                     std::vector<std::atomic_long> &excess, data_vec &reverse, std::atomic_long *residuals,
                     data_vec &wave, std::vector<ExchangeFlag> &exchange, std::vector<std::atomic_bool> &isActive,
-                    const long s, const long t) {
+                    const long s, const long t, std::atomic_long &numAvailableNodes) {
 
-    //std::cout << "Thread[" << threadId << "]: Queue size is " << queues[threadId].size() << std::endl;
     long numIters = 0;
 
-    while (excess[s].load() + excess[t].load() < 0) {
-        if (queues[threadId].empty()) {
-            bool nodesAvailable = requestActiveNodes(threadId, queues, exchange);
-            if (!nodesAvailable) break;
-            while (exchange[threadId].flag.load() && nodesAvailable && queues[threadId].empty()) {
-                nodesAvailable = false;
-                for (auto & q: queues) {
-                    nodesAvailable = !q.empty() ? true : nodesAvailable;
-                }
+    while (numAvailableNodes.load() > 0) {
+        if (queues[threadId].empty() && !exchange[threadId].flag.load()) {
+            requestActiveNodes(threadId, queues, exchange);
+            if (numAvailableNodes.load() == 0) {
+                std::cout << "No nodes available" << std::endl;
+                break;
             }
-        } else if (exchange[threadId].flag.load() && queues[threadId].size() > 1) {
-            sendActiveNodes(threadId, queues, exchange);
+            while (exchange[threadId].flag.load() && numAvailableNodes.load() > 0 && queues[threadId].empty());
+        } else if (exchange[threadId].flag.load()) {
+            if (!queues[threadId].empty()) {
+                sendActiveNodes(threadId, queues, exchange);
+            } else {
+                int receiver = exchange[threadId].receiver;
+                exchange[receiver].flag.store(false);
+                exchange[threadId].flag.store(false);
+                exchange[receiver].receiver = receiver;
+                exchange[threadId].receiver = threadId;
+            }
         }
 
         if (!queues[threadId].empty()) {
             long curNode = queues[threadId].front();
-            processWithRelabel(curNode, g, queues[threadId], heights, excess, reverse, residuals, wave, isActive, s, t);
+            processWithRelabel(curNode, g, queues[threadId], heights, excess, reverse, residuals, wave, isActive, s, t, numAvailableNodes);
             numIters++;
         }
     }
 
-    // Cleanup
-
-    if (exchange[threadId].flag.load()) {
-        int receiver = exchange[threadId].receiver;
-        exchange[receiver].flag.store(0);
-        exchange[threadId].flag.store(0);
+    if (!queues[threadId].empty()) {
+        std::cerr << "Terminated while there are still active nodes." << std::endl;
     }
 
-    while (!queues[threadId].empty()) {
-        queues[threadId].pop();
-    }
-
-    //std::cout << "Finished executing thread " << threadId << std::endl;
 }
 
 static void fillReverseVector(Graph &g, std::vector<long>& reverse) {
@@ -277,8 +293,10 @@ long PLFFlow(Graph &g, const long s, const long t) {
     std::vector<std::queue<long>> queues(numThreads);
     std::vector<ExchangeFlag> exchange(numThreads);
     for (auto &e : exchange) {
-        e.flag.store(0);
+        e.flag.store(false);
     }
+
+    std::atomic_long numAvailableNodes(0);
 
     std::cout << "Creating neighbour lists" << std::endl;
     if (!g.isNeighbourListAvailable()) {
@@ -314,6 +332,7 @@ long PLFFlow(Graph &g, const long s, const long t) {
     std::cout << "Creating initial preflow" << std::endl;
     // Initial preflow
     std::vector<long> neighbours = g.getNeighbours(s);
+    size_t numNeighbours = numThreads;
     for (size_t i = 0; i < neighbours.size(); ++i) {
         long n = neighbours[i];
         long edgeId = g.getIdFromSrcDst(s, n);
@@ -324,21 +343,26 @@ long PLFFlow(Graph &g, const long s, const long t) {
 
         queues[i % numThreads].emplace(n);
         isActive[n].store(true);
+        numAvailableNodes.fetch_add(1);
     }
 
     const int itersBetweenGlobalRelabel = std::floor(g.getNV() / 2);
     int itersSinceGlobalRelabel = 0;
     unsigned long totalIters = 0;
 
-    for (int i = 0; i < threads.size(); ++i) {
+    for (size_t i = 0; i < numNeighbours; ++i) {
         threads[i] = std::thread(execute, i, std::ref(g), std::ref(queues), std::ref(heights), std::ref(excess),
                                  std::ref(reverse), residuals, std::ref(wave), std::ref(exchange),
-                                 std::ref(isActive), s, t);
+                                 std::ref(isActive), s, t, std::ref(numAvailableNodes));
     }
 
-    for (auto &thread : threads) {
-        thread.join();
+    for (size_t i = 0; i < numNeighbours; ++i) {
+        threads[i].join();
     }
+
+    /*for (auto &thread : threads) {
+        thread.join();
+    }*/
 
     long maxFlow = 0;
     neighbours = g.getNeighbours(s);
