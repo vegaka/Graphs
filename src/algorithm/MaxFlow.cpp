@@ -104,7 +104,7 @@ static void createDistanceLabels(Graph &g, data_vec &heights, long t) {
 
 static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_vec &wave, data_vec &reverse,
                         data_vec &color, long startVertex, long startLevel, long currentWave) {
-    long coloredVertices = 0;
+    long coloredVertices = 1;
     std::queue<long> queue;
     queue.push(startVertex);
     color[startVertex] = 1;
@@ -138,6 +138,20 @@ static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_v
     return coloredVertices;
 }
 
+static void relabelUncoloredVertices(Graph &g, data_vec &heights, data_vec &wave, long &currentWave) {
+    for (size_t i = 0; i < wave.size(); ++i) {
+        if (wave[i] != currentWave) {
+            auto neighbours = g.getNeighbours(i);
+            long height = heights[neighbours[0]];
+            for (size_t j = 1; j < neighbours.size(); ++j) {
+                height = std::max(height, heights[neighbours[j]]);
+            }
+            heights[i] = height + 1;
+            wave[i] = currentWave;
+        }
+    }
+}
+
 static void globalRelabel(Graph &g, data_vec &heights, data_vec &residuals, data_vec &wave, data_vec &reverse,
                           const long s, const long t, long &currentWave) {
     currentWave++;
@@ -145,7 +159,12 @@ static void globalRelabel(Graph &g, data_vec &heights, data_vec &residuals, data
     std::queue<long> queue;
     long coloredVertices = BFSColoring(g, heights, residuals, wave, reverse, color, t, 0, currentWave);
     if (coloredVertices < g.getNV()) {
-        BFSColoring(g, heights, residuals, wave, reverse, color, s, g.getNV(), currentWave);
+        coloredVertices += BFSColoring(g, heights, residuals, wave, reverse, color, s, g.getNV(), currentWave);
+    }
+
+    if (coloredVertices < g.getNV()) {
+        std::cout << "Remaining uncolored vertices: " << g.getNV() - coloredVertices << std::endl;
+        relabelUncoloredVertices(g, heights, wave, currentWave);
     }
 }
 
