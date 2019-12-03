@@ -13,7 +13,7 @@ using data_vec = std::vector<long>;
 static void createDistanceLabels(Graph &g, data_vec &heights, long t) {
     long level = 0;
     std::queue<long> queue;
-    queue.emplace(t);
+    queue.push(t);
     heights[t] = level;
 
     while(!queue.empty()) {
@@ -24,19 +24,24 @@ static void createDistanceLabels(Graph &g, data_vec &heights, long t) {
         for (auto &n : neighbours) {
             if (heights[n] == -1) {
                 heights[n] = heights[curNode] + 1;
-                queue.emplace(n);
+                queue.push(n);
             }
         }
     }
 }
 
-static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_vec &wave, data_vec &reverse,
+static void relabelVertex(const long vertex, const long newHeight, data_vec &heights) {
+    heights[vertex] = newHeight;
+}
+
+static long BFSColoring(Graph &g, data_vec &heights, std::atomic_long *residuals, data_vec &wave, data_vec &reverse,
                         data_vec &color, long startVertex, long startLevel, long currentWave) {
-    long coloredVertices = 0;
+    long coloredVertices = 1;
     std::queue<long> queue;
-    queue.emplace(startVertex);
+    queue.push(startVertex);
     color[startVertex] = 1;
-    heights[startVertex] = startLevel;
+    relabelVertex(startVertex, startLevel, heights);
+    //heights[startVertex] = startLevel;
     wave[startVertex] = currentWave;
 
     while(!queue.empty()) {
@@ -49,16 +54,17 @@ static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_v
             edgeId = g.getIdFromSrcDst(n, curNode);
             edgeId = edgeId == -1 ? reverse[g.getIdFromSrcDst(curNode, n)] : edgeId;
 
-            if (residuals[edgeId] <= 0) continue;
+            if (residuals[edgeId].load() <= 0) continue;
 
             if (color[n] == 0) {
                 color[n] = 1;
                 coloredVertices++;
 
-                heights[n] = heights[curNode] + 1;
+                relabelVertex(n, heights[curNode] + 1, heights);
+                //heights[n] = heights[curNode] + 1;
 
                 wave[n] = currentWave;
-                queue.emplace(n);
+                queue.push(n);
             }
         }
     }
@@ -66,14 +72,46 @@ static long BFSColoring(Graph &g, data_vec &heights, data_vec &residuals, data_v
     return coloredVertices;
 }
 
-static void globalRelabel(Graph &g, data_vec &heights, data_vec &residuals, data_vec &wave, data_vec &reverse,
+static void relabelUncoloredVertices(Graph &g, data_vec &heights, data_vec &wave, long &currentWave) {
+    for (size_t i = 0; i < wave.size(); ++i) {
+        if (wave[i] != currentWave) {
+            auto neighbours = g.getNeighbours(i);
+            long height = heights[neighbours[0]];
+            for (size_t j = 1; j < neighbours.size(); ++j) {
+                height = std::max(height, heights[neighbours[j]]);
+            }
+            relabelVertex(i, height + 1, heights);
+            //heights[i] = height + 1;
+            wave[i] = currentWave;
+        }
+    }
+}
+
+static void globalRelabel(Graph &g, data_vec &heights, std::atomic_long *residuals, data_vec &wave, data_vec &reverse,
                           const long s, const long t, long &currentWave) {
     currentWave++;
     data_vec color(g.getNV(), 0);
     std::queue<long> queue;
     long coloredVertices = BFSColoring(g, heights, residuals, wave, reverse, color, t, 0, currentWave);
     if (coloredVertices < g.getNV()) {
-        BFSColoring(g, heights, residuals, wave, reverse, color, s, g.getNV(), currentWave);
+        coloredVertices += BFSColoring(g, heights, residuals, wave, reverse, color, s, g.getNV(), currentWave);
+    }
+
+    if (coloredVertices < g.getNV()) {
+        std::cout << "Remaining uncolored vertices: " << g.getNV() - coloredVertices << std::endl;
+        relabelUncoloredVertices(g, heights, wave, currentWave);
+    }
+}
+
+static void executeRelabelThread(Graph &g, data_vec &heights, std::atomic_long *residuals, data_vec &wave, data_vec &reverse,
+                                 long &currentWave, const long s, const long t, std::atomic_long &itersSinceGlobalRelabel,
+                                 const int itersBetweenGlobalRelabel, std::atomic_bool &doRelabel) {
+    while (doRelabel.load()) {
+        if (itersSinceGlobalRelabel.load() >= itersBetweenGlobalRelabel) {
+            //std::cout << "Global relabel!" << std::endl;
+            globalRelabel(g, heights, residuals, wave, reverse, s, t, currentWave);
+            itersSinceGlobalRelabel.store(0);
+        }
     }
 }
 
@@ -133,7 +171,8 @@ static void processWithRelabel(long node, Graph &g, std::queue<long> &queue, dat
                 }
             }
         } else if (heights[node] < h + 1){
-            heights[node] = h + 1;
+            relabelVertex(node, h + 1, heights);
+            //heights[node] = h + 1;
         }
     }
 
@@ -202,9 +241,8 @@ static void requestActiveNodes(int threadId, std::vector<std::queue<long>> &queu
 static void execute(int threadId, Graph &g, std::vector<std::queue<long>> &queues, data_vec &heights,
                     std::vector<std::atomic_long> &excess, data_vec &reverse, std::atomic_long *residuals,
                     data_vec &wave, std::vector<ExchangeFlag> &exchange, std::vector<std::atomic_bool> &isActive,
-                    const long s, const long t, std::atomic_long &numAvailableNodes) {
-
-    long numIters = 0;
+                    const long s, const long t, std::atomic_long &numAvailableNodes,
+                    std::atomic_long &itersSinceGlobalRelabel) {
 
     while (numAvailableNodes.load() > 0) {
         if (queues[threadId].empty() && !exchange[threadId].flag.load()) {
@@ -229,7 +267,7 @@ static void execute(int threadId, Graph &g, std::vector<std::queue<long>> &queue
         if (!queues[threadId].empty()) {
             long curNode = queues[threadId].front();
             processWithRelabel(curNode, g, queues[threadId], heights, excess, reverse, residuals, wave, isActive, s, t, numAvailableNodes);
-            numIters++;
+            itersSinceGlobalRelabel.fetch_add(1);
         }
     }
 
@@ -250,7 +288,7 @@ static void fillReverseVector(Graph &g, std::vector<long>& reverse) {
             long edgeId = g.getIdFromSrcDst(i, n);
             long revEdgeId = g.getIdFromSrcDst(n, i);
 
-            // Don't process and edge if the reverse has already been processed
+            // Don't process an edge if the reverse has already been processed
             if (reverse[std::max(edgeId, revEdgeId)] != -1) continue;
 
             if (edgeId == -1) {
@@ -289,6 +327,7 @@ long PLFFlow(Graph &g, const long s, const long t) {
 
     unsigned int numThreads = std::thread::hardware_concurrency();
     if (numThreads == 0) numThreads = DEFAULT_NUM_THREADS;
+    numThreads--; // Make space for the thread that handles relabeling
     std::vector<std::thread> threads(numThreads);
     std::vector<std::queue<long>> queues(numThreads);
     std::vector<ExchangeFlag> exchange(numThreads);
@@ -332,7 +371,6 @@ long PLFFlow(Graph &g, const long s, const long t) {
     std::cout << "Creating initial preflow" << std::endl;
     // Initial preflow
     std::vector<long> neighbours = g.getNeighbours(s);
-    size_t numNeighbours = numThreads;
     for (size_t i = 0; i < neighbours.size(); ++i) {
         long n = neighbours[i];
         long edgeId = g.getIdFromSrcDst(s, n);
@@ -346,19 +384,26 @@ long PLFFlow(Graph &g, const long s, const long t) {
         numAvailableNodes.fetch_add(1);
     }
 
-    const int itersBetweenGlobalRelabel = std::floor(g.getNV() / 2);
-    int itersSinceGlobalRelabel = 0;
-    unsigned long totalIters = 0;
+    const unsigned long itersBetweenGlobalRelabel = g.getNV() * 4;// std::floor(g.getNV() / 2);
+    std::atomic_long itersSinceGlobalRelabel(0);
 
-    for (size_t i = 0; i < numNeighbours; ++i) {
+    for (size_t i = 0; i < numThreads; ++i) {
         threads[i] = std::thread(execute, i, std::ref(g), std::ref(queues), std::ref(heights), std::ref(excess),
                                  std::ref(reverse), residuals, std::ref(wave), std::ref(exchange),
-                                 std::ref(isActive), s, t, std::ref(numAvailableNodes));
+                                 std::ref(isActive), s, t, std::ref(numAvailableNodes), std::ref(itersSinceGlobalRelabel));
     }
 
-    for (size_t i = 0; i < numNeighbours; ++i) {
+    std::atomic_bool doRelabel(true);
+    std::thread relabelThread(executeRelabelThread, std::ref(g), std::ref(heights), residuals,
+                              std::ref(wave), std::ref(reverse), std::ref(currentWave), s, t,
+                              std::ref(itersSinceGlobalRelabel), itersBetweenGlobalRelabel, std::ref(doRelabel));
+
+    for (size_t i = 0; i < numThreads; ++i) {
         threads[i].join();
     }
+
+    doRelabel.store(false);
+    relabelThread.join();
 
     /*for (auto &thread : threads) {
         thread.join();
