@@ -30,7 +30,7 @@ static void createDistanceLabels(Graph &g, data_vec &heights, long t) {
     }
 }
 
-static void relabelVertex(const long vertex, const long newHeight, data_vec &heights,
+static inline void relabelVertex(const long vertex, const long newHeight, data_vec &heights,
                           std::vector<std::atomic_bool> &heightFlags) {
     bool ref = false;
     if (heightFlags[vertex].compare_exchange_strong(ref, true)) {
