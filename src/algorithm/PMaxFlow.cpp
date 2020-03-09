@@ -98,7 +98,6 @@ static void globalRelabel(Graph &g, data_vec &heights, std::atomic_long *residua
                           const long s, const long t, long &currentWave, std::vector<std::atomic_bool> &heightFlags) {
     currentWave++;
     data_vec color(g.getNV(), 0);
-    std::queue<long> queue;
     long coloredVertices = BFSColoring(g, heights, residuals, wave, reverse, color, heightFlags, t, 0, currentWave);
     if (coloredVertices < g.getNV()) {
         coloredVertices += BFSColoring(g, heights, residuals, wave, reverse, color, heightFlags, s, g.getNV(), currentWave);

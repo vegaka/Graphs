@@ -171,6 +171,15 @@ void CSR_Graph::createNeighbourList(bool undirected) {
             }
         }
     }
+/*
+    for (size_t i = 0; i < neighbourList.size(); ++i) {
+        std::cout << "Node: " << i << ", neighbours ";
+        for (auto &n: neighbourList[i]) {
+            std::cout << n << " ";
+        }
+        std::cout << std::endl;
+    }
+    std::cout << "Undirected nedges: " << undirectedNE << std::endl;*/
 
     hasNeighbourList = true;
 }
